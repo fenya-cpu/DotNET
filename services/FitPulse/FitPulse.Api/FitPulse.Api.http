@@ -1,0 +1,6 @@
+@FitPulse.Api_HostAddress = http://localhost:5078
+
+GET {{FitPulse.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

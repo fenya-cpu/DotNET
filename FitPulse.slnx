@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="FitPulse.Api/FitPulse.Api.csproj" />
+  <Project Path="FitPulse.AppHost/FitPulse.AppHost.csproj" />
+  <Project Path="FitPulse.Bll/FitPulse.Bll.csproj" />
+  <Project Path="FitPulse.Dal/FitPulse.Dal.csproj" />
+  <Project Path="FitPulse.Domain/FitPulse.Domain.csproj" />
+</Solution>
