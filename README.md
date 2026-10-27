@@ -1,159 +1,71 @@
-# 🏋️‍♂️ FitPulse Catalog API
+# FitPulse Platform — Microservices & Clean Architecture
 
-RESTful мікросервіс управління каталогом спортивного харчування та товарів для фітнесу **FitPulse**. Проєкт реалізовано на платформі **.NET 9 / ASP.NET Core** із дотриманням принципів **Clean Architecture (N-Tier Architecture)**, **Domain-Driven Design (DDD)** та паттернів **Repository / Unit of Work**.
+Платформа для фітнес-сервісів, реалізована на базі мікросервісної архітектури .NET з використанням Clean Architecture, CQRS, MediatR та NoSQL (MongoDB).
 
----
+## 🏗 Архітектурна структура (Clean Architecture)
 
-## 🛠 Стек технологій
+Мікросервіс відгуків **`Reviews`** (Лабораторна робота №04) розроблено відповідно до шаблону Clean Architecture та розділено на 4 класичні шари з чітким напрямком залежностей (внутрішні шари не знають про зовнішні):
 
-* **Платформа:** .NET 9.0 / C# 13
-* **Web API:** ASP.NET Core Controller-based API
-* **ORM:** Entity Framework Core 9.0 (Code-First)
-* **БД:** Microsoft SQL Server / LocalDB
+```
+Services/Reviews/
+├── Reviews.Domain/          # Доменні сутності (Review, Comment), Value Objects (Author), бізнес-винятки та інтерфейси репозиторіїв.
+├── Reviews.Application/     # CQRS Команди та Запити, MediatR обробники, Pipeline Behaviors (Logging, Validation, Performance), валідатори.
+├── Reviews.Infrastructure/  # MongoDbContext, BSON-мапінг (BsonClassMap), ReviewRepository, ReviewQueries, авто-сідінг та індекси.
+└── Reviews.WebApi/          # REST API контролери, Swagger UI, глобальна обробка помилок (ProblemDetails), конфігурація DI.
+
+```
+
+## 🛠 Технологічний стек
+
+* **Платформа:** .NET 8 / 9
+
+* **База даних:** MongoDB (MongoDB.Driver, BSON serialization)
+
+* **Паттерни:** CQRS, Mediator (MediatR), Repository, Unit of Work, Value Objects, Pipeline Behaviors
+
 * **Валідація:** FluentValidation
+
 * **Мапінг:** AutoMapper
-* **Логування:** Serilog (з підтримкою виводу SQL-запитів EF Core у консоль)
-* **Специфікації:** Ardalis.Specification
-* **Документація API:** Swagger / OpenAPI
 
----
+* **Документація:** Swagger / OpenAPI
 
-## 🏛 Архітектура проєкту
+## 🚀 Інструкція із запуску
 
-Рішення розділено на 4 чіткі шари відповідно до принципів розділення відповідальності (Separation of Concerns):
+### 1. Передумови
 
-```text
-FitPulse/
-├── 📁 FitPulse.Domain/      # Доменний шар (Сутності, бізнес-правила, кастомні винятки)
-├── 📁 FitPulse.Dal/         # Шар доступу до даних (DbContext, Fluent API, Репозиторії, Unit of Work, Міграції)
-├── 📁 FitPulse.Bll/         # Шар бізнес-логіки (DTO, Сервіси, AutoMapper, FluentValidation)
-└── 📁 FitPulse.Api/         # Шар веб-інтерфейсу (REST-контролери, Middleware, Serilog, Program.cs)
+Переконайтеся, що локально або у Docker запущено **MongoDB** на стандартному порту `27017`:
+
+```
+docker run -d -p 27017:27017 --name mongodb mongo:latest
+
 ```
 
----
+### 2. Запуск мікросервісу Reviews
 
-## 🗄 Модель даних та зв'язки (EF Core)
+З кореня репозиторію виконайте команду:
 
-Сутності домену розроблені з урахуванням інкапсуляції (приватні сетери, методи зміни стану `AddStock`, `RemoveStock`, `UpdatePrice`):
+```
+dotnet run --project services/Reviews/Reviews.WebApi/Reviews.WebApi.csproj
 
-1. **`Product` ↔ `ProductDetail` (1:1)**:
-   * Кожен товар має детальний опис та інформацію про виробника.
-   * Конфігурація каскадного видалення.
-2. **`Product` ↔ `ProductImage` (1:N)**:
-   * Товар може мати декілька зображень із порядком сортування (`SortOrder`).
-3. **`Product` ↔ `Category` (M:N з додатковими даними)**:
-   * Зв'язок багатими-до-багатьох реалізовано через проміжну сутність `ProductCategory`, що містить додаткову властивість `AddedAt` (дата додавання товару до категорії).
-
----
-
-## 🚀 Інструкція з розгортання та запуску
-
-### Передумови
-* [NET 9.0 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
-* SQL Server Express / LocalDB (або Docker-контейнер з MSSQL)
-* Встановлений інструмент `dotnet-ef`:
-  ```bash
-  dotnet tool install --global dotnet-ef
-  ```
-
-### 1. Клонування репозиторію
-```bash
-git clone https://github.com/your-username/FitPulse.git
-cd FitPulse
 ```
 
-### 2. Конфігурація підключення до БД
-Перевірте рядок підключення у `FitPulse.Api/appsettings.json`:
-```json
-"ConnectionStrings": {
-  "DefaultConnection": "Server=(localdb)\\mssqllocaldb;Database=FitPulseCatalogDb;Trusted_Connection=True;MultipleActiveResultSets=true"
-}
-```
+Після запуску відкрийте браузер за адресою:
+👉 **`https://localhost:7001/swagger`** (або відповідний порт у консолі)
 
-### 3. Застосування міграцій
-Для створення бази даних `FitPulseCatalogDb` та створення всіх таблиць і обмежень виконайте:
-```bash
-dotnet ef database update --project FitPulse.Dal --startup-project FitPulse.Api
-```
+## 📋 Реалізований функціонал (Reviews Service)
 
-*(За бажанням)* Для створення SQL-скрипту створення БД:
-```bash
-dotnet ef migrations script --project FitPulse.Dal --startup-project FitPulse.Api -o script.sql
-```
+* **CQRS через MediatR:** Окремі `CreateReviewCommand`, `GetReviewsListQuery`, `GetReviewByIdQuery`.
 
-### 4. Запуск сервісу
-```bash
-dotnet run --project FitPulse.Api
-```
-Після успішного запуску перейдіть за адресою:
-👉 **`https://localhost:7001/swagger`** (або відповідний порт з консолі).
+* **Pipeline Behaviors:**
 
----
+  * `ValidationBehavior` — наскрізна перевірка FluentValidation до виклику обробника.
 
-## 📡 Основні API Endpoints
+  * `LoggingBehavior` — структуроване логування запитів.
 
-### 📦 Товари (`/api/products`)
+  * `PerformanceBehavior` — відстеження повільних запитів (>500ms).
 
-| Метод | Шлях | Опис |
-| :--- | :--- | :--- |
-| **GET** | `/api/products` | Отримати список товарів з пагінацією, фільтрацією та сортуванням |
-| **GET** | `/api/products/{id}` | Отримати детальний товар за ID (включно з категоріями) |
-| **POST** | `/api/products` | Створити новий товар з валідацією DTO |
-| **POST** | `/api/products/{id}/add-stock` | Поповнити складський залишок товару |
-| **POST** | `/api/products/{id}/remove-stock` | Списати товар зі складу (з перевіркою залишку) |
+* **Оптимістична конкурентність:** Контроль версій документів (`Version`) для запобігання конфліктам одночасного оновлення.
 
----
+* **Автоматична індексація та сідінг:** Автоматичне створення складених, текстових та унікальних індексів (`productId + author.userId`) при старті застосунку.
 
-## 📑 Приклади відповідей API
-
-### 1. Успішна пагінація (`GET /api/products?page=1&pageSize=2`) — `200 OK`
-```json
-{
-  "items": [
-    {
-      "id": 1,
-      "name": "Whey Protein Isolate 1kg",
-      "sku": "WHEY-ISO-1KG",
-      "price": 1299.00,
-      "availableStock": 50,
-      "description": "Високоякісний ізолят сироваткового протеїну.",
-      "categories": ["Спортивне харчування"]
-    }
-  ],
-  "totalCount": 1,
-  "page": 1,
-  "pageSize": 2,
-  "totalPages": 1,
-  "hasNext": false,
-  "hasPrevious": false
-}
-```
-
-### 2. Помилка валідації (`POST /api/products` з порожнім ім'ям) — `400 Bad Request`
-```json
-{
-  "type": "https://tools.ietf.org/html/rfc9110#section-15.5.1",
-  "title": "One or more validation errors occurred.",
-  "status": 400,
-  "errors": {
-    "Name": [
-      "Назва товару обов'язкова."
-    ]
-  }
-}
-```
-
-### 3. Конфлікт бізнес-правил (Дублікат SKU) — `409 Conflict`
-```json
-{
-  "title": "Конфлікт даних",
-  "status": 409,
-  "detail": "Товар з SKU 'WHEY-ISO-1KG' вже існує.",
-  "instance": "/api/products"
-}
-```
-
----
-
-## 📝 Автор
-Лабораторна робота №3 з дисципліни "Розробка Web-застосунків на платформі .NET".
+* **Глобальна обробка помилок:** Централізований `GlobalExceptionHandler` із поверненням фреймворку `ProblemDetails` для доменних та MongoDB-винятків.
