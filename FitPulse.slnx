@@ -1,4 +1,11 @@
 <Solution>
+  <Folder Name="/services/">
+    <Project Path="services/FitPulse.Api/FitPulse.Api.csproj" />
+    <Project Path="services/FitPulse.Bll/FitPulse.Bll.csproj" />
+    <Project Path="services/FitPulse.Dal/FitPulse.Dal.csproj" />
+    <Project Path="services/FitPulse.Domain/FitPulse.Domain.csproj" />
+    <Project Path="services/FitPulse.Tests/FitPulse.Tests.csproj" />
+  </Folder>
   <Project Path="FitPulse.Api/FitPulse.Api.csproj" />
   <Project Path="FitPulse.AppHost/FitPulse.AppHost.csproj" />
   <Project Path="FitPulse.Bll/FitPulse.Bll.csproj" />
