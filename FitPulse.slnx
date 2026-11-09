@@ -1,14 +1,19 @@
 <Solution>
   <Folder Name="/Services/" />
+  <Folder Name="/Services/FitPulse/">
+    <Project Path="Services/FitPulse/FitPulse.Api/FitPulse.Api.csproj" />
+    <Project Path="Services/FitPulse/FitPulse.Bll/FitPulse.Bll.csproj" />
+    <Project Path="Services/FitPulse/FitPulse.Dal/FitPulse.Dal.csproj" />
+    <Project Path="Services/FitPulse/FitPulse.Domain/FitPulse.Domain.csproj" />
+  </Folder>
   <Folder Name="/Services/Reviews/">
     <Project Path="Services/Reviews/Reviews.Application/Reviews.Application.csproj" />
     <Project Path="Services/Reviews/Reviews.Domain/Reviews.Domain.csproj" />
     <Project Path="Services/Reviews/Reviews.Infrastructure/Reviews.Infrastructure.csproj" />
     <Project Path="Services/Reviews/Reviews.WebApi/Reviews.WebApi.csproj" />
   </Folder>
-  <Project Path="FitPulse.Api/FitPulse.Api.csproj" />
-  <Project Path="FitPulse.Bll/FitPulse.Bll.csproj" />
-  <Project Path="FitPulse.Dal/FitPulse.Dal.csproj" />
-  <Project Path="FitPulse.Domain/FitPulse.Domain.csproj" />
-  <Project Path="FitPulse.Tests/FitPulse.Tests.csproj" />
+  <Project Path="Platform.Aggregator/Platform.Aggregator.csproj" />
+  <Project Path="Platform.ApiGateway/Platform.ApiGateway.csproj" />
+  <Project Path="Platform.AppHost/Platform.AppHost.csproj" />
+  <Project Path="Platform.ServiceDefaults/Platform.ServiceDefaults.csproj" />
 </Solution>

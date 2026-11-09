@@ -1,71 +1,156 @@
-# FitPulse Platform — Microservices & Clean Architecture
+# 🏋️‍♂️ FitPulse Microservice Platform (.NET Aspire & Observability)
 
-Платформа для фітнес-сервісів, реалізована на базі мікросервісної архітектури .NET з використанням Clean Architecture, CQRS, MediatR та NoSQL (MongoDB).
+**FitPulse** — це мікросервісна платформа для фітнесу та здоров'я, побудована на базі **.NET Aspire**, з єдиною точкою входу **API Gateway (YARP)**, сервісом агрегації даних **Aggregator Pattern**, розподіленим трасуванням **OpenTelemetry** та структурованим логуванням **Serilog**.
 
-## 🏗 Архітектурна структура (Clean Architecture)
+---
 
-Мікросервіс відгуків **`Reviews`** (Лабораторна робота №04) розроблено відповідно до шаблону Clean Architecture та розділено на 4 класичні шари з чітким напрямком залежностей (внутрішні шари не знають про зовнішні):
-
-```
-Services/Reviews/
-├── Reviews.Domain/          # Доменні сутності (Review, Comment), Value Objects (Author), бізнес-винятки та інтерфейси репозиторіїв.
-├── Reviews.Application/     # CQRS Команди та Запити, MediatR обробники, Pipeline Behaviors (Logging, Validation, Performance), валідатори.
-├── Reviews.Infrastructure/  # MongoDbContext, BSON-мапінг (BsonClassMap), ReviewRepository, ReviewQueries, авто-сідінг та індекси.
-└── Reviews.WebApi/          # REST API контролери, Swagger UI, глобальна обробка помилок (ProblemDetails), конфігурація DI.
+## 🏛️ Архітектура рішення
 
 ```
-
-## 🛠 Технологічний стек
-
-* **Платформа:** .NET 8 / 9
-
-* **База даних:** MongoDB (MongoDB.Driver, BSON serialization)
-
-* **Паттерни:** CQRS, Mediator (MediatR), Repository, Unit of Work, Value Objects, Pipeline Behaviors
-
-* **Валідація:** FluentValidation
-
-* **Мапінг:** AutoMapper
-
-* **Документація:** Swagger / OpenAPI
-
-## 🚀 Інструкція із запуску
-
-### 1. Передумови
-
-Переконайтеся, що локально або у Docker запущено **MongoDB** на стандартному порту `27017`:
-
-```
-docker run -d -p 27017:27017 --name mongodb mongo:latest
-
-```
-
-### 2. Запуск мікросервісу Reviews
-
-З кореня репозиторію виконайте команду:
-
-```
-dotnet run --project services/Reviews/Reviews.WebApi/Reviews.WebApi.csproj
-
+[ Клієнт / Swagger ]
+        │
+        ▼
+┌────────────────────────────────────────────────────────┐
+│  Platform.ApiGateway (YARP Reverse Proxy - Port 5000)  │
+│  • Генерує/передає X-Correlation-Id                     │
+│  • Логує тривалість та маршрутизацію                  │
+└───────┬───────────────────────────────┬────────────────┘
+        │                               │
+        ▼                               ▼
+┌────────────────────────┐      ┌────────────────────────┐
+│  Platform.Aggregator   │      │   Прямі маршрути до    │
+│  • Task.WhenAll        │      │      мікросервісів     │
+│  • Partial Failures    │      └───────────────┬────────┘
+└───────┬────────────────┘                      │
+        │                                       │
+        └───────────────────┬───────────────────┘
+                            │
+         ┌──────────────────┼──────────────────┐
+         ▼                  ▼                  ▼
+┌─────────────────┐┌─────────────────┐┌──────────────────┐
+│  FitPulse.Api   ││  Reviews.WebApi ││   Інші сервіси   │
+│  (SQL Server)   ││    (MongoDB)    ││                  │
+└────────┬────────┘└────────┬────────┘└──────────────────┘
+         │                  │
+         ▼                  ▼
+┌─────────────────┐┌─────────────────┐
+│ SQL Server Cont.││  MongoDB Cont.  │
+└─────────────────┘└─────────────────┘
 ```
 
-Після запуску відкрийте браузер за адресою:
-👉 **`https://localhost:7001/swagger`** (або відповідний порт у консолі)
+### Основні компоненти:
 
-## 📋 Реалізований функціонал (Reviews Service)
+* **`Platform.AppHost`** — Оркестратор .NET Aspire, що керує життєвим циклом усіх мікросервісів та Docker-контейнерів (SQL Server, MongoDB).
+* **`Platform.ServiceDefaults`** — Спільна бібліотека налаштувань (Serilog, OpenTelemetry, Health Checks, Service Discovery, CorrelationId Middleware & Handler).
+* **`Platform.ApiGateway`** — Зворотний проксі на YARP, що маршрутизує запити за логічними іменами сервісів та генерує `X-Correlation-Id`.
+* **`Platform.Aggregator`** — Сервіс композиції даних, який виконує паралельні запити (`Task.WhenAll`) до мікросервісів та обробляє часткові відмови (Partial Failures).
+* **`Services/FitPulse`** — Сервіс управління тренуваннями та бронюваннями (SQL Server + EF Core / ADO.NET).
+* **`Services/Reviews`** — Сервіс відгуків та рейтингів (MongoDB + Clean Architecture + CQRS).
 
-* **CQRS через MediatR:** Окремі `CreateReviewCommand`, `GetReviewsListQuery`, `GetReviewByIdQuery`.
+---
 
-* **Pipeline Behaviors:**
+## 🚀 Швидкий запуск
 
-  * `ValidationBehavior` — наскрізна перевірка FluentValidation до виклику обробника.
+### Передумови:
+1. Встановлено **.NET 9 SDK** (або .NET 8 SDK).
+2. Встановлено та запущено **Docker Desktop** (переконайтеся, що віртуалізація WSL2/Hyper-V увімкнена).
 
-  * `LoggingBehavior` — структуроване логування запитів.
+### Кроки запуску:
 
-  * `PerformanceBehavior` — відстеження повільних запитів (>500ms).
+1. **Перейдіть у корінь проєкту:**
+   ```bash
+   cd D:\.NET\DotNET
+   ```
 
-* **Оптимістична конкурентність:** Контроль версій документів (`Version`) для запобігання конфліктам одночасного оновлення.
+2. **Задайте пароль для контейнера SQL Server у секретах Aspire:**
+   ```bash
+   dotnet user-secrets set "Parameters:sql-password" "P@ssw0rd2026!" --project Platform.AppHost/Platform.AppHost.csproj
+   ```
 
-* **Автоматична індексація та сідінг:** Автоматичне створення складених, текстових та унікальних індексів (`productId + author.userId`) при старті застосунку.
+3. **Запустіть оркестратор AppHost:**
+   * **Через CLI:**
+     ```bash
+     dotnet run --project Platform.AppHost/Platform.AppHost.csproj
+     ```
+   * **Через Visual Studio:** 
+     Встановіть `Platform.AppHost` як **Startup Project** і натисніть `F5`.
 
-* **Глобальна обробка помилок:** Централізований `GlobalExceptionHandler` із поверненням фреймворку `ProblemDetails` для доменних та MongoDB-винятків.
+4. **Відкрийте Aspire Dashboard:**
+   Після запуску в консолі з'явиться посилання на Aspire Dashboard (наприклад, `http://localhost:18888`), де ви побачите стан усіх контейнерів та сервісів (**State: Running**).
+
+---
+
+## 🌐 Ендпоінти та маршрутизація
+
+Всі запити здійснюються через **API Gateway (Порт 5000)**.
+
+| Призначення | HTTP Метод | Gateway URL | Цільовий сервіс |
+| :--- | :--- | :--- | :--- |
+| **Отримання товару/тренування** | `GET` | `http://localhost:5000/api/products/{id}` | `fitpulse-api` |
+| **Створення бронювання** | `POST` | `http://localhost:5000/api/bookings` | `fitpulse-api` |
+| **Отримання відгуків** | `GET` | `http://localhost:5000/api/reviews?productId={id}` | `reviews-api` |
+| **Агрегована картка товару** | `GET` | `http://localhost:5000/api/aggregator/products/{id}/full` | `aggregator` |
+
+---
+
+## 🔬 Приклади запитів (cURL / HTTP)
+
+### 1. Запит до мікросервісу через Gateway:
+```bash
+curl -i -X GET http://localhost:5000/api/products/1
+```
+*У відповіді обов'язково присутній заголовок `X-Correlation-Id`.*
+
+### 2. Агрегований запит (Aggregator Service):
+```bash
+curl -i -X GET http://localhost:5000/api/aggregator/products/1/full
+```
+**Приклад відповіді (200 OK):**
+```json
+{
+  "product": {
+    "id": 1,
+    "name": "Персональне тренування",
+    "price": 500.00
+  },
+  "reviews": [
+    {
+      "id": "654c123...",
+      "productId": 1,
+      "authorName": "Олексій",
+      "rating": 5,
+      "text": "Чудовий тренер!"
+    }
+  ],
+  "warnings": []
+}
+```
+
+### 3. Сценарій часткової відмови (Partial Failure Test):
+1. В **Aspire Dashboard** зупиніть сервіс `reviews-api` (кнопка *Stop*).
+2. Виконайте той самий агрегований запит до `http://localhost:5000/api/aggregator/products/1/full`.
+3. Система поверне статус `200 OK` із доступними даними про продукт та описом проблеми у масиві `warnings`:
+```json
+{
+  "product": {
+    "id": 1,
+    "name": "Персональне тренування",
+    "price": 500.00
+  },
+  "reviews": [],
+  "warnings": [
+    "Сервіс reviews-api тимчасово недоступний."
+  ]
+}
+```
+
+---
+
+## 📊 Моніторинг та Спостережуваність (Observability)
+
+* **Розподілене трасування (Traces):** 
+  Вкладка **Traces** в Aspire Dashboard дозволяє простежити повний шлях запиту: `Gateway` $\rightarrow$ `Aggregator` $\rightarrow$ `FitPulse.Api` / `Reviews.WebApi` $\rightarrow$ `SQL Server` / `MongoDB`.
+* **Наскрізний CorrelationId:**
+  Кожен запит отримує унікальний `X-Correlation-Id`. Зробивши пошук за цим GUID у вкладці **Structured Logs**, можна побачити всі записи логів з усіх сервісів, які брали участь в обробці запиту.
+* **Структуровані логи (Serilog):**
+  Логи збагачені метаданими `ServiceName`, `Environment`, `MachineName`, `ThreadId`, `CorrelationId`, `TraceId` та `SpanId`.

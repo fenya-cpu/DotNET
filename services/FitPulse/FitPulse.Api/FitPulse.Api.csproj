@@ -15,6 +15,7 @@
   <ItemGroup>
     <ProjectReference Include="..\FitPulse.Bll\FitPulse.Bll.csproj" />
     <ProjectReference Include="..\FitPulse.Domain\FitPulse.Domain.csproj" />
+    <ProjectReference Include="..\..\..\Platform.ServiceDefaults\Platform.ServiceDefaults.csproj" />
   </ItemGroup>
 
 </Project>
