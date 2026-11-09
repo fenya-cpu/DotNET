@@ -1,9 +1,9 @@
-﻿namespace Platform.Aggregator.Controllers;
 
 using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
-using Platform.Aggregator.Clients;
-using Platform.Aggregator.Models;
+using Platform.Aggregator.Dtos;
+using Platform.Aggregator.Services;
+
 
 [ApiController]
 [Route("api/aggregator")]

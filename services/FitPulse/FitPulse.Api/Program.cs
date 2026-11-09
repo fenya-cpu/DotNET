@@ -1,9 +1,10 @@
-using Serilog;
 using FitPulse.Api.Middleware;
+using FitPulse.Bll.Caching;
 using FitPulse.Bll.Profiles;
 using FitPulse.Bll.Services;
 using FitPulse.Dal.Interfaces;
 using FitPulse.Dal.UnitOfWork;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
