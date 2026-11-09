@@ -60,6 +60,7 @@ public static class Extensions
                 metrics.AddAspNetCoreInstrumentation()
                        .AddHttpClientInstrumentation()
                        .AddRuntimeInstrumentation();
+                metrics.AddMeter("FitPulse.Cache");
             })
             .WithTracing(tracing =>
             {

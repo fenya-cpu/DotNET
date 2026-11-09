@@ -4,10 +4,28 @@ using FitPulse.Bll.Profiles;
 using FitPulse.Bll.Services;
 using FitPulse.Dal.Interfaces;
 using FitPulse.Dal.UnitOfWork;
+using Platform.ServiceDefaults;
+using FitPulse.Api.Grpc;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+// Додати перед builder.Build():
+builder.Services.AddGrpc(options =>
+{
+    options.Interceptors.Add<LoggingInterceptor>();
+});
+// 1. Local In-Memory Cache[cite: 12]
+builder.Services.AddMemoryCache(options =>
+{
+    options.SizeLimit = 10_000;
+});
 
+// 2. Distributed Redis Cache (Aspire)[cite: 14]
+builder.AddRedisDistributedCache("redis");
+
+// 3. Register Caching Services & Metrics
+builder.Services.AddSingleton<CacheMetrics>();
+builder.Services.AddSingleton<TwoLevelCacheService>();
 // 1. Serilog Logging
 builder.Host.UseSerilog((ctx, cfg) => cfg
     .ReadFrom.Configuration(ctx.Configuration)
@@ -34,7 +52,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
-
+app.MapGrpcService<FitPulseGrpcService>();
 app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())

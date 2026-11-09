@@ -1,4 +1,6 @@
-using Platform.Aggregator.Clients;
+using FitPulse.Grpc;
+using Platform.Aggregator.Services;
+using Reviews.Grpc;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -6,24 +8,29 @@ builder.AddServiceDefaults();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
 
-builder.Services.AddHttpClient<FitPulseClient>(c => c.BaseAddress = new("http://fitpulse-api"));
-builder.Services.AddHttpClient<ReviewsClient>(c => c.BaseAddress = new("http://reviews-api"));
-builder.Services.ConfigureHttpJsonOptions(options =>
+// 1. Реєстрація gRPC-клієнтів із Service Discovery[cite: 17, 25]
+builder.Services.AddGrpcClient<FitPulseService.FitPulseServiceClient>(o =>
 {
-    options.SerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
+    o.Address = new Uri("http://fitpulse-api");
 });
+
+builder.Services.AddGrpcClient<ReviewsService.ReviewsServiceClient>(o =>
+{
+    o.Address = new Uri("http://reviews-api");
+});
+
+// 2. Distributed Cache поверх Redis[cite: 14, 25]
+builder.AddRedisDistributedCache("redis");
+
+// 3. Реєстрація сервісу агрегації
+builder.Services.AddScoped<ProductAggregatorService>();
+
 var app = builder.Build();
 
 app.MapDefaultEndpoints();
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-
+app.UseRouting();
 app.MapControllers();
 
 app.Run();

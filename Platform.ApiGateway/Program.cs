@@ -18,7 +18,10 @@ app.Use(async (context, next) =>
     await next();
     sw.Stop();
 
-    var route = context.GetReverseProxyFeature()?.Route.Config.RouteId;
+    // Безопасное получение фичи YARP без выброса исключения
+    var proxyFeature = context.Features.Get<Yarp.ReverseProxy.Model.IReverseProxyFeature>();
+    var route = proxyFeature?.Route.Config.RouteId;
+
     app.Logger.LogInformation("{Method} {Path} -> route {Route} : {StatusCode} in {Elapsed} ms",
         context.Request.Method, context.Request.Path, route ?? "unknown",
         context.Response.StatusCode, sw.ElapsedMilliseconds);
