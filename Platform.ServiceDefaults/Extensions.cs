@@ -2,7 +2,9 @@ namespace Microsoft.Extensions.Hosting;
 
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
@@ -11,6 +13,7 @@ using Platform.ServiceDefaults;
 using Serilog;
 using Serilog.Events;
 using Serilog.Formatting.Compact;
+using System.Text.Json;
 
 public static class Extensions
 {
@@ -60,7 +63,9 @@ public static class Extensions
                 metrics.AddAspNetCoreInstrumentation()
                        .AddHttpClientInstrumentation()
                        .AddRuntimeInstrumentation();
-                metrics.AddMeter("FitPulse.Cache");
+                metrics.AddMeter("FitPulse.Cache")
+                        .AddMeter("FitPulse.Api")
+                        .AddMeter("Polly");
             })
             .WithTracing(tracing =>
             {
@@ -98,17 +103,49 @@ public static class Extensions
 
     public static WebApplication MapDefaultEndpoints(this WebApplication app)
     {
-        app.UseMiddleware<CorrelationIdMiddleware>();
+        app.MapHealthChecks("/health");
 
-        if (app.Environment.IsDevelopment())
+        // Liveness: швидка перевірка, чи живий процес (без зовнішніх залежностей)
+        app.MapHealthChecks("/health/live", new HealthCheckOptions
         {
-            app.MapHealthChecks("/health");
-            app.MapHealthChecks("/alive", new HealthCheckOptions
-            {
-                Predicate = r => r.Tags.Contains("live")
-            });
-        }
+            Predicate = check => check.Tags.Contains("live")
+        });
+
+        app.MapHealthChecks("/alive", new HealthCheckOptions
+        {
+            Predicate = r => r.Tags.Contains("live")
+        });
+
+        // Readiness: перевірка всіх залежностей (БД, Redis, gRPC) з деталізацією в JSON
+        app.MapHealthChecks("/health/ready", new HealthCheckOptions
+        {
+            Predicate = check => check.Tags.Contains("ready"),
+            ResponseWriter = WriteJsonResponse
+        });
 
         return app;
+    }
+    private static Task WriteJsonResponse(HttpContext context, HealthReport report)
+    {
+        context.Response.ContentType = "application/json; charset=utf-8";
+
+        var response = new
+        {
+            status = report.Status.ToString(),
+            totalDuration = report.TotalDuration.TotalMilliseconds,
+            checks = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                description = e.Value.Description,
+                duration = e.Value.Duration.TotalMilliseconds,
+                tags = e.Value.Tags
+            })
+        };
+
+        return context.Response.WriteAsync(JsonSerializer.Serialize(response, new JsonSerializerOptions
+        {
+            WriteIndented = true
+        }));
     }
 }

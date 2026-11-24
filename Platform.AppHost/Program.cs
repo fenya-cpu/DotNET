@@ -16,13 +16,16 @@ var fitpulseApi = builder.AddProject<Projects.FitPulse_Api>("fitpulse-api")
     .WithReference(mainDb)
     .WaitFor(mainDb)
     .WithReference(redis)
-    .WaitFor(redis);
+    .WaitFor(redis)
+    .WithHttpHealthCheck("/health");
+
 
 var reviewsApi = builder.AddProject<Projects.Reviews_WebApi>("reviews-api")
     .WithReference(reviewsDb)
     .WaitFor(reviewsDb)
     .WithReference(redis)
-    .WaitFor(redis);
+    .WaitFor(redis)
+    .WithHttpHealthCheck("/health");
 
 // 4. Агрегатор
 var aggregator = builder.AddProject<Projects.Platform_Aggregator>("aggregator")
@@ -31,7 +34,8 @@ var aggregator = builder.AddProject<Projects.Platform_Aggregator>("aggregator")
     .WithReference(redis)
     .WaitFor(fitpulseApi)
     .WaitFor(reviewsApi)
-    .WaitFor(redis);
+    .WaitFor(redis)
+    .WithHttpHealthCheck("/health");
 
 // 5. API Gateway (YARP, порт 5000)
 builder.AddProject<Projects.Platform_ApiGateway>("gateway")
@@ -39,6 +43,7 @@ builder.AddProject<Projects.Platform_ApiGateway>("gateway")
     .WithReference(fitpulseApi)
     .WithReference(reviewsApi)
     .WithReference(aggregator)
-    .WaitFor(aggregator);
+    .WaitFor(aggregator)
+    .WithHttpHealthCheck("/health");
 
 builder.Build().Run();

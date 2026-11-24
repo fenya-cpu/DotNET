@@ -4,6 +4,7 @@ using Grpc.Core;
 using Microsoft.Extensions.Caching.Distributed;
 using Platform.Aggregator.Dtos;
 using Reviews.Grpc;
+using StackExchange.Redis;
 
 namespace Platform.Aggregator.Services;
 
@@ -30,8 +31,17 @@ public class ProductAggregatorService
     {
         var cacheKey = $"aggregator:product:{productId}:full";
 
-        // 1. Перевіряємо кеш у Redis ДО паралельних викликів[cite: 18]
-        var cachedBytes = await _redisCache.GetAsync(cacheKey, ct);
+        // 1. Проверка кеша в Redis с Graceful Degradation
+        byte[]? cachedBytes = null;
+        try
+        {
+            cachedBytes = await _redisCache.GetAsync(cacheKey, ct);
+        }
+        catch (Exception ex) when (ex is RedisConnectionException or RedisTimeoutException)
+        {
+            _logger.LogWarning(ex, "Redis unavailable in Aggregator, bypassing cache for {CacheKey}", cacheKey);
+        }
+
         if (cachedBytes is not null)
         {
             _logger.LogInformation("Cache hit for aggregated product {ProductId}", productId);
@@ -41,7 +51,7 @@ public class ProductAggregatorService
 
         var warnings = new List<string>();
 
-        // 2. Паралельні gRPC-виклики через Task.WhenAll[cite: 18]
+        // 2. Параллельные gRPC-вызовы через Task.WhenAll
         var productTask = SafeAsync(
             async () => await _fitPulseClient.GetProductAsync(new GetProductRequest { Id = productId }, cancellationToken: ct),
             "fitpulse-api",
@@ -76,14 +86,21 @@ public class ProductAggregatorService
             Warnings = warnings
         };
 
-        // 3. Часткові відповіді з помилками НЕ кешуємо[cite: 18, 23]
+        // 3. Сохранение в кеш с обработкой недоступности Redis (частичные ответы не кешируем)
         if (result.Warnings.Count == 0 && result.Product is not null)
         {
-            var options = new DistributedCacheEntryOptions
+            try
             {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(30) // Короткий TTL[cite: 18]
-            };
-            await _redisCache.SetAsync(cacheKey, JsonSerializer.SerializeToUtf8Bytes(result), options, ct);
+                var options = new DistributedCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(30)
+                };
+                await _redisCache.SetAsync(cacheKey, JsonSerializer.SerializeToUtf8Bytes(result), options, ct);
+            }
+            catch (Exception ex) when (ex is RedisConnectionException or RedisTimeoutException)
+            {
+                _logger.LogWarning(ex, "Redis unavailable in Aggregator, result for {CacheKey} not cached", cacheKey);
+            }
         }
 
         return result;

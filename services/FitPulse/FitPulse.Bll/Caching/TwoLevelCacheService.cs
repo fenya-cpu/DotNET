@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
+using StackExchange.Redis;
 
 namespace FitPulse.Bll.Caching;
 
@@ -31,27 +32,34 @@ public class TwoLevelCacheService
         TimeSpan? redisTtl = null,
         CancellationToken ct = default)
     {
-        memoryTtl ??= TimeSpan.FromMinutes(1);   // L1 коротший TTL[cite: 14, 15]
-        redisTtl ??= TimeSpan.FromMinutes(10);   // L2 довший TTL[cite: 14, 15]
+        memoryTtl ??= TimeSpan.FromMinutes(1);
+        redisTtl ??= TimeSpan.FromMinutes(10);
 
-        // 1. Перевірка L1 (In-Memory)[cite: 14]
+        // 1. Перевірка L1 (In-Memory)
         if (_memoryCache.TryGetValue(key, out T? l1Value) && l1Value is not null)
         {
             _metrics.Hit("L1");
-            _logger.LogDebug("Cache hit L1 (Key: {Key})", key);
             return l1Value;
         }
         _metrics.Miss("L1");
 
-        // 2. Перевірка L2 (Redis)[cite: 14]
-        var redisBytes = await _redisCache.GetAsync(key, ct);
+        // 2. Перевірка L2 (Redis) з Graceful Degradation[cite: 10]
+        byte[]? redisBytes = null;
+        try
+        {
+            redisBytes = await _redisCache.GetAsync(key, ct);
+        }
+        catch (Exception ex) when (ex is RedisConnectionException or RedisTimeoutException)
+        {
+            _logger.LogWarning(ex, "Redis unavailable, falling back to database for {Key}", key);
+        }
+
         if (redisBytes is not null)
         {
             var l2Value = JsonSerializer.Deserialize<T>(redisBytes);
             if (l2Value is not null)
             {
                 _metrics.Hit("L2");
-                _logger.LogDebug("Cache hit L2 (Key: {Key})", key);
                 _memoryCache.Set(key, l2Value, new MemoryCacheEntryOptions
                 {
                     Size = 1,
@@ -62,18 +70,25 @@ public class TwoLevelCacheService
         }
         _metrics.Miss("L2");
 
-        // 3. Звернення до бази даних[cite: 14]
-        _logger.LogDebug("Cache miss (Key: {Key}). Fetching from database", key);
+        // 3. Звернення до бази даних[cite: 10, 11]
         var dbValue = await factory();
         if (dbValue is null) return default;
 
-        // Заповнюємо L2 та L1 на зворотному шляху[cite: 14, 15]
-        await _redisCache.SetAsync(
-            key,
-            JsonSerializer.SerializeToUtf8Bytes(dbValue),
-            new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = redisTtl },
-            ct);
+        // 4. Запис у L2 (Redis) з обробкою недоступності[cite: 11]
+        try
+        {
+            await _redisCache.SetAsync(
+                key,
+                JsonSerializer.SerializeToUtf8Bytes(dbValue),
+                new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = redisTtl },
+                ct);
+        }
+        catch (Exception ex) when (ex is RedisConnectionException or RedisTimeoutException)
+        {
+            _logger.LogWarning(ex, "Redis unavailable, value for {Key} not cached", key);
+        }
 
+        // Запис у L1
         _memoryCache.Set(key, dbValue, new MemoryCacheEntryOptions
         {
             Size = 1,
@@ -86,7 +101,13 @@ public class TwoLevelCacheService
     public async Task RemoveAsync(string key, CancellationToken ct = default)
     {
         _memoryCache.Remove(key);
-        await _redisCache.RemoveAsync(key, ct);
-        _logger.LogInformation("Cache invalidated (Key: {Key})", key);
+        try
+        {
+            await _redisCache.RemoveAsync(key, ct);
+        }
+        catch (Exception ex) when (ex is RedisConnectionException or RedisTimeoutException)
+        {
+            _logger.LogWarning(ex, "Redis unavailable during cache invalidation for {Key}", key);
+        }
     }
 }
