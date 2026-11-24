@@ -73,7 +73,8 @@ public static class Extensions
                        .AddSource("MongoDB.Driver.Core.Extensions.DiagnosticSources")
                        .AddAspNetCoreInstrumentation()
                        .AddHttpClientInstrumentation()
-                       .AddSqlClientInstrumentation();
+                       .AddSqlClientInstrumentation()
+                       .AddSource("Platform.Messaging");
             });
 
         builder.AddOpenTelemetryExporters();

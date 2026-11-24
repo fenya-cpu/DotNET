@@ -8,6 +8,9 @@ var mainDb = sql.AddDatabase("FitPulseDb");
 var mongo = builder.AddMongoDB("mongo").WithDataVolume();
 var reviewsDb = mongo.AddDatabase("ReviewsDb");
 
+var rabbit = builder.AddRabbitMQ("messaging")
+    .WithDataVolume()
+    .WithManagementPlugin();
 // 2. Контейнер Redis (з постійним сховищем)
 var redis = builder.AddRedis("redis").WithDataVolume();
 
@@ -17,7 +20,9 @@ var fitpulseApi = builder.AddProject<Projects.FitPulse_Api>("fitpulse-api")
     .WaitFor(mainDb)
     .WithReference(redis)
     .WaitFor(redis)
-    .WithHttpHealthCheck("/health");
+    .WithHttpHealthCheck("/health")
+    .WithReference(rabbit)
+    .WaitFor(rabbit);
 
 
 var reviewsApi = builder.AddProject<Projects.Reviews_WebApi>("reviews-api")
@@ -25,7 +30,9 @@ var reviewsApi = builder.AddProject<Projects.Reviews_WebApi>("reviews-api")
     .WaitFor(reviewsDb)
     .WithReference(redis)
     .WaitFor(redis)
-    .WithHttpHealthCheck("/health");
+    .WithHttpHealthCheck("/health")
+    .WithReference(rabbit)
+    .WaitFor(rabbit);
 
 // 4. Агрегатор
 var aggregator = builder.AddProject<Projects.Platform_Aggregator>("aggregator")
@@ -45,5 +52,6 @@ builder.AddProject<Projects.Platform_ApiGateway>("gateway")
     .WithReference(aggregator)
     .WaitFor(aggregator)
     .WithHttpHealthCheck("/health");
+
 
 builder.Build().Run();

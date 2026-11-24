@@ -5,6 +5,7 @@ using Reviews.Infrastructure.Seeding;
 using Reviews.WebApi.Middleware;
 using Platform.ServiceDefaults;
 using Reviews.WebApi.Grpc;
+using Reviews.WebApi.IntegrationEvents;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using MongoDB.Driver;
 
@@ -48,6 +49,10 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
+
+builder.AddRabbitMQClient("messaging");
+builder.Services.AddScoped<ReviewsProductSyncHandler>();
+builder.Services.AddHostedService<ReviewsCatalogConsumer>();
 
 var app = builder.Build();
 app.MapGrpcHealthChecksService();

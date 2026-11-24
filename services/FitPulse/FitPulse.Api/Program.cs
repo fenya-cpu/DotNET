@@ -8,6 +8,7 @@ using Platform.ServiceDefaults;
 using FitPulse.Api.Grpc;
 using FitPulse.Api.Metrics;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Platform.EventBus;
 using Serilog;
 
 
@@ -69,11 +70,14 @@ var connectionString = builder.Configuration.GetConnectionString("fitpulse-db")
 // 3. DI Registrations (Scoped)
 builder.Services.AddScoped<IUnitOfWork>(_ => new UnitOfWork(connectionString));
 builder.Services.AddScoped<IBookingService, BookingService>();
-
 // 4. AutoMapper
 builder.Services.AddAutoMapper(cfg => cfg.AddProfile<BookingProfile>());
 
 // 5. Global ProblemDetails Exception Handling
+
+builder.Services.AddSingleton<IEventPublisher, RabbitMqEventPublisher>();
+builder.AddRabbitMQClient("messaging");
+
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<DomainExceptionHandler>();
 
